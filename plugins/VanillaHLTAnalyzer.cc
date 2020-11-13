@@ -140,14 +140,8 @@ VanillaHLTAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
      std::string iName = triggerNames_.triggerName(itrig);
      iName.erase( std::remove_if(iName.end()-2, iName.end(), (int(*)(int))std::isdigit), iName.end() );
      if ( iName.find ("Jpsi")     != std::string::npos ||
-	  iName.find ("Upsilon")  != std::string::npos ||
 	  iName.find ("PsiPrime") != std::string::npos ||
-	  iName.find ("LowMass")  != std::string::npos ||
-	  iName.find ("Phi")      != std::string::npos ||
-	  iName.find ("Bs")       != std::string::npos ||
-	  iName.find ("Tau3Mu")   != std::string::npos ||
-	  iName.find ("Tau3mu")   != std::string::npos ||
-	  iName.find ("Onia")     != std::string::npos ) {
+	  iName.find ("LowMass")  != std::string::npos ) {
 
 
        
