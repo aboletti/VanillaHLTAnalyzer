@@ -80,8 +80,8 @@ VanillaHLTAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
    hltNames.clear();
    hltResults.clear();
-   hltMatchDimu.clear();
-   hltMatchB.clear();
+   hltMatchMu1.clear();
+   hltMatchMu2.clear();
    hltPrescales.clear();
    l1tNames.clear();
    l1tPrescales.clear();
@@ -103,19 +103,24 @@ VanillaHLTAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
    Muon2_phi = 0;
    Muon2_cha = 0;
 
-   Bp_CL       = 0;
-   Bp_LS       = 0;
-   Bp_CosAlpha = 0;
-   Bp_Mass     = 0;
-   Bp_pT       = 0;
-   Bp_eta      = 0;
-   Bp_phi      = 0;
+   Bz_CL       = 0;
+   Bz_LS       = 0;
+   Bz_CosAlpha = 0;
+   Bz_Mass     = 0;
+   Bz_pT       = 0;
+   Bz_eta      = 0;
+   Bz_phi      = 0;
        
-   track_pT  = 0;
-   track_eta = 0;
-   track_phi = 0;
-   track_d0  = 0;
-   track_cha = 0;
+   track1_pT  = 0;
+   track1_eta = 0;
+   track1_phi = 0;
+   track1_d0  = 0;
+   track1_cha = 0;
+   track2_pT  = 0;
+   track2_eta = 0;
+   track2_phi = 0;
+   track2_d0  = 0;
+   track2_cha = 0;
 
    nOffVtx = 0;
 
@@ -179,8 +184,8 @@ VanillaHLTAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
        hltNames    .push_back(iName);
        hltResults  .push_back(triggerResults->accept(itrig));
-       hltMatchDimu.push_back(false);
-       hltMatchB   .push_back(false);
+       hltMatchMu1.push_back(false);
+       hltMatchMu2.push_back(false);
        hltPrescales.push_back(hltPres);
        // hltPrescales.push_back(PSdetails.second);
        // l1tPrescales.push_back(EffectiveL1PS);
@@ -322,18 +327,12 @@ VanillaHLTAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	       if ( hltResults.at(iTrig) ) {
 		 auto mapIter = muonFilterMap->find(hltNames.at(iTrig));
 		 if ( mapIter == muonFilterMap->end() ) continue;
-		 bool m1_matched = false;
-		 bool m2_matched = false;
 		 for (unsigned i=0; i<triggerEvent->size(); ++i) {
 		   pat::TriggerObjectStandAlone obj = triggerEvent->at(i);
 		   obj.unpackFilterLabels(iEvent,*triggerResults);
 		   if (obj.hasFilterLabel(mapIter->second)) {
-		     if ( deltaR(mu1->eta(),mu1->phi(),obj.eta(),obj.phi())<0.01 ) m1_matched = true;
-		     if ( deltaR(mu2->eta(),mu2->phi(),obj.eta(),obj.phi())<0.01 ) m2_matched = true;
-		     if ( m1_matched && m2_matched ) {
-		       hltMatchDimu[iTrig] = true;
-		       break;
-		     }
+		     if ( deltaR(mu1->eta(),mu1->phi(),obj.eta(),obj.phi())<0.01 ) hltMatchMu1[iTrig] = true;
+		     if ( deltaR(mu2->eta(),mu2->phi(),obj.eta(),obj.phi())<0.01 ) hltMatchMu2[iTrig] = true;
 		   }
 		 }
 	       }
@@ -347,9 +346,10 @@ VanillaHLTAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
    // std::cout << "# of Dimuon: " << nDimuon << std::endl;
    if ( nDimuon == 0 ) return;
 
-   int nBp = 0;
+   int nBz = 0;
 
-   if ( doBp && fabs(Dimuon_Mass-3.0969) < 0.2 ) {
+   {
+   // if ( doBz && fabs(Dimuon_Mass-3.0969) < 0.2 ) {
      // cout<<"Start dimuon vtx fit. Mu1: "<<muObj1->pt()<<" "<<muObj1->eta()<<" "<<muObj1->phi()
      // 	 <<" Mu2:  "<<muObj2->pt()<<" "<<muObj2->eta()<<" "<<muObj2->phi()<<" "<<endl;
      // preselection on tracks
@@ -383,115 +383,121 @@ VanillaHLTAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
        if (deltaR(muObj1->eta(),muObj1->phi(),itrk1.eta(),itrk1.phi())<.001)    continue;
        if (deltaR(muObj2->eta(),muObj2->phi(),itrk1.eta(),itrk1.phi())<.001)    continue;
             
-       FreeTrajectoryState InitialFTS = initialFreeState(itrk1, magField);
-       TrajectoryStateClosestToBeamLine tscb( blsBuilder(InitialFTS, *recoBeamSpotHandle) );
+       // Loop on track collection - trk 2
+       for (selTracksDef::const_iterator tracksIt2=qualityTracks.begin(); tracksIt2!=qualityTracks.end(); ++tracksIt2) {
+	 reco::Track itrk2((*tracksIt2).second) ;
+	 if (itrk2.pt()<itrk1.pt()) continue;
+	 if (deltaR(muObj1->eta(),muObj1->phi(),itrk2.eta(),itrk2.phi())<.001)    continue;
+	 if (deltaR(muObj2->eta(),muObj2->phi(),itrk2.eta(),itrk2.phi())<.001)    continue;
+	 if(!( itrk1.charge() * itrk2.charge() < 0 )) continue; 
+            
+	 FreeTrajectoryState InitialFTS = initialFreeState(itrk1, magField);
+	 FreeTrajectoryState InitialFTS2 = initialFreeState(itrk2, magField);
+	 TrajectoryStateClosestToBeamLine tscb( blsBuilder(InitialFTS, *recoBeamSpotHandle) );
+	 TrajectoryStateClosestToBeamLine tscb2( blsBuilder(InitialFTS2, *recoBeamSpotHandle) );
 
-       // hists_["trkPt"] -> Fill( itrk1.pt() );
-       // hists_["D0sig"] -> Fill( trk1_d0sig );
+	 // hists_["trkPt"] -> Fill( itrk1.pt() );
+	 // hists_["D0sig"] -> Fill( trk1_d0sig );
  
-       reco::Particle::LorentzVector pB, p1, p2, p3;
+	 reco::Particle::LorentzVector pB, p1, p2, p3, p4;
 
-       // Combined system
-       double thirdTrackMass2 = 0.493677 * 0.493677;
-       double MuMass2         = 0.105658 * 0.105658;
-       double e1 = sqrt( muObj1->momentum().Mag2() + MuMass2         );
-       double e2 = sqrt( muObj2->momentum().Mag2() + MuMass2         );
-       double e3 = sqrt( itrk1.momentum().Mag2()   + thirdTrackMass2 );
+	 // Combined system
+	 double thirdTrackMass2 = 0.493677 * 0.493677;
+	 double forthTrackMass2 = 0.139570 * 0.139570;
+	 double MuMass2         = 0.105658 * 0.105658;
+	 double e1 = sqrt( muObj1->momentum().Mag2() + MuMass2         );
+	 double e2 = sqrt( muObj2->momentum().Mag2() + MuMass2         );
+	 double e3 = sqrt( itrk1.momentum().Mag2()   + thirdTrackMass2 );
+	 double e4 = sqrt( itrk2.momentum().Mag2()   + forthTrackMass2 );
             
-       p1 = reco::Particle::LorentzVector(muObj1->px(), muObj1->py(), muObj1->pz(), e1);
-       p2 = reco::Particle::LorentzVector(muObj2->px(), muObj2->py(), muObj2->pz(), e2);
-       p3 = reco::Particle::LorentzVector(itrk1.px()  , itrk1.py()  , itrk1.pz()  , e3);
+	 p1 = reco::Particle::LorentzVector(muObj1->px(), muObj1->py(), muObj1->pz(), e1);
+	 p2 = reco::Particle::LorentzVector(muObj2->px(), muObj2->py(), muObj2->pz(), e2);
+	 p3 = reco::Particle::LorentzVector(itrk1.px()  , itrk1.py()  , itrk1.pz()  , e3);
+	 p4 = reco::Particle::LorentzVector(itrk2.px()  , itrk2.py()  , itrk2.pz()  , e4);
             
-       pB = p1 + p2 + p3;
+	 pB = p1 + p2 + p3 + p4;
             
-       if (pB.mass() > 5.5 || pB.mass() < 5) continue;
+	 if (pB.mass() > 6 || pB.mass() < 4.8) continue;
 
-       // do the vertex fit
-       std::vector<reco::TransientTrack> t_tks;
-       t_tks.push_back((*theB).build(muObj1->track().get()));
-       t_tks.push_back((*theB).build(muObj2->track().get()));
-       t_tks.push_back((*theB).build(&itrk1));
-       if (t_tks.size()!=3) continue;
+	 // do the vertex fit
+	 std::vector<reco::TransientTrack> t_tks;
+	 t_tks.push_back((*theB).build(muObj1->track().get()));
+	 t_tks.push_back((*theB).build(muObj2->track().get()));
+	 t_tks.push_back((*theB).build(&itrk1));
+	 t_tks.push_back((*theB).build(&itrk2));
+	 if (t_tks.size()!=4) continue;
             
-       KalmanVertexFitter kvf; //cout<<"Vertex fit. Trk: "<<itrk1.pt()<<" "<<itrk1.eta()<<" "<<itrk1.phi()<<" "<<muObj1->track()->pt()<<" "<<muObj1->track()->eta()<<" "<<muObj1->track()->phi()<<" "<<muObj2->track()->pt()<<" "<<muObj2->track()->eta()<<" "<<muObj2->track()->phi()<<endl;
-       // for (std::vector<reco::TransientTrack>::iterator iter = t_tks.begin(); iter!=t_tks.end(); ++iter)
+	 KalmanVertexFitter kvf; //cout<<"Vertex fit. Trk: "<<itrk1.pt()<<" "<<itrk1.eta()<<" "<<itrk1.phi()<<" "<<muObj1->track()->pt()<<" "<<muObj1->track()->eta()<<" "<<muObj1->track()->phi()<<" "<<muObj2->track()->pt()<<" "<<muObj2->track()->eta()<<" "<<muObj2->track()->phi()<<endl;
+	 // for (std::vector<reco::TransientTrack>::iterator iter = t_tks.begin(); iter!=t_tks.end(); ++iter)
 	 // cout<<iter->track().pt()<<" "<<iter->track().eta()<<" "<<iter->track().phi()<<" "<<iter->track().lost()<<" "<<iter->track().found()<<" "<<iter->track().numberOfValidHits()<<endl;
-       TransientVertex tv  = kvf.vertex(t_tks);
-       // cout<<"Done!"<<endl;
-       if (!tv.isValid()) continue;
-       reco::Vertex vertex = tv;
-       // hists_["B0InvMass"]->Fill( pB.mass() );
-       float JpsiTkCL = 0;
-       if ((vertex.chi2()>=0.0) && (vertex.ndof()>0) )   
-	 JpsiTkCL = TMath::Prob(vertex.chi2(), vertex.ndof() );
+	 TransientVertex tv  = kvf.vertex(t_tks);
+	 // cout<<"Done!"<<endl;
+	 if (!tv.isValid()) continue;
+	 reco::Vertex vertex = tv;
+	 // hists_["B0InvMass"]->Fill( pB.mass() );
+	 float JpsiTkTkCL = 0;
+	 if ((vertex.chi2()>=0.0) && (vertex.ndof()>0) )   
+	   JpsiTkTkCL = TMath::Prob(vertex.chi2(), vertex.ndof() );
 
-       if ( JpsiTkCL < 0.001 ) continue;
+	 if ( JpsiTkTkCL < 0.001 ) continue;
               
-       // calculate four-track transverse momentum
-       math::XYZVector pperp(muObj1->px() + muObj2->px() + itrk1.px(),
-			     muObj1->py() + muObj2->py() + itrk1.py(),
-			     0.);
-       // get vertex position and error to calculate the decay length significance
-       GlobalPoint secondaryVertex = tv.position();
-       GlobalError err             = tv.positionError();
-       GlobalPoint displacementFromBeamspot( -1*((vertexBeamSpot.x0() - secondaryVertex.x()) + 
-						 (secondaryVertex.z() - vertexBeamSpot.z0()) * vertexBeamSpot.dxdz()), 
-					     -1*((vertexBeamSpot.y0() - secondaryVertex.y()) + 
-						 (secondaryVertex.z() - vertexBeamSpot.z0()) * vertexBeamSpot.dydz()), 
-					     0);
-       reco::Vertex::Point vperp(displacementFromBeamspot.x(),displacementFromBeamspot.y(),0.);
+	 // calculate four-track transverse momentum
+	 math::XYZVector pperp(muObj1->px() + muObj2->px() + itrk1.px() + itrk2.px(),
+			       muObj1->py() + muObj2->py() + itrk1.py() + itrk2.py(),
+			       0.);
+	 // get vertex position and error to calculate the decay length significance
+	 GlobalPoint secondaryVertex = tv.position();
+	 GlobalError err             = tv.positionError();
+	 GlobalPoint displacementFromBeamspot( -1*((vertexBeamSpot.x0() - secondaryVertex.x()) + 
+						   (secondaryVertex.z() - vertexBeamSpot.z0()) * vertexBeamSpot.dxdz()), 
+					       -1*((vertexBeamSpot.y0() - secondaryVertex.y()) + 
+						   (secondaryVertex.z() - vertexBeamSpot.z0()) * vertexBeamSpot.dydz()), 
+					       0);
+	 reco::Vertex::Point vperp(displacementFromBeamspot.x(),displacementFromBeamspot.y(),0.);
 
-       ++nBp;
+	 ++nBz;
 
-       if (JpsiTkCL > Bp_CL) {
-	 Bp_CL       = JpsiTkCL;
-	 Bp_LS       = displacementFromBeamspot.perp() / sqrt(err.rerr(displacementFromBeamspot));
-	 Bp_CosAlpha = vperp.Dot(pperp)/(vperp.R()*pperp.R());
-	 Bp_Mass     = pB.mass();
-	 Bp_pT       = pB.pt();
-	 Bp_eta      = pB.eta();
-	 Bp_phi      = pB.phi();
+	 if (JpsiTkTkCL > Bz_CL) {
+	   Bz_CL       = JpsiTkTkCL;
+	   Bz_LS       = displacementFromBeamspot.perp() / sqrt(err.rerr(displacementFromBeamspot));
+	   Bz_CosAlpha = vperp.Dot(pperp)/(vperp.R()*pperp.R());
+	   Bz_Mass     = pB.mass();
+	   Bz_pT       = pB.pt();
+	   Bz_eta      = pB.eta();
+	   Bz_phi      = pB.phi();
        
-	 track_pT  = itrk1.pt();
-	 track_eta = itrk1.eta();
-	 track_phi = itrk1.phi();
-	 track_cha = itrk1.charge();
-	 track_d0  = tscb.transverseImpactParameter().significance();
+	   track1_pT  = itrk1.pt();
+	   track1_eta = itrk1.eta();
+	   track1_phi = itrk1.phi();
+	   track1_cha = itrk1.charge();
+	   track1_d0  = tscb.transverseImpactParameter().significance();
+	   track2_pT  = itrk2.pt();
+	   track2_eta = itrk2.eta();
+	   track2_phi = itrk2.phi();
+	   track2_cha = itrk2.charge();
+	   track2_d0  = tscb2.transverseImpactParameter().significance();
  
-	 for (unsigned iTrig=0; iTrig<hltNames.size(); ++iTrig)
-	   if ( hltResults.at(iTrig) && hltMatchDimu.at(iTrig) ) {
-	     auto mapIter = trackFilterMap->find(hltNames.at(iTrig));
-	     if ( mapIter == trackFilterMap->end() ) continue;
-	     for (unsigned i=0; i<triggerEvent->size(); ++i) {
-	       pat::TriggerObjectStandAlone obj = triggerEvent->at(i);
-	       obj.unpackFilterLabels(iEvent,*triggerResults);
-	       if ( obj.hasFilterLabel(mapIter->second) && deltaR(itrk1.eta(),itrk1.phi(),obj.eta(),obj.phi())<0.01 ) {
-		 hltMatchB[iTrig] = true;
-		 break;
-	       }
-	     }
-	   }
-
+	 }
        }
      }
    }
 
-   // std::cout << "# of B+: " << nBp << ", CLmax=" <<Bp_CL << ", trk_d0=" << track_d0 << std::endl;
-   // if ( nBp > 0 ) {
-   //   std::cout << Bp_CL << std::endl;
-   //   std::cout << Bp_LS << std::endl;
-   //   std::cout << Bp_CosAlpha << std::endl;
-   //   std::cout << Bp_Mass << std::endl;
-   //   std::cout << Bp_pT << std::endl;
-   //   std::cout << Bp_eta << std::endl;
-   //   std::cout << Bp_phi << std::endl;
+   // std::cout << "# of B+: " << nBz << ", CLmax=" <<Bz_CL << ", trk_d0=" << track_d0 << std::endl;
+   // if ( nBz > 0 ) {
+   //   std::cout << Bz_CL << std::endl;
+   //   std::cout << Bz_LS << std::endl;
+   //   std::cout << Bz_CosAlpha << std::endl;
+   //   std::cout << Bz_Mass << std::endl;
+   //   std::cout << Bz_pT << std::endl;
+   //   std::cout << Bz_eta << std::endl;
+   //   std::cout << Bz_phi << std::endl;
 
    //   std::cout << track_pT << std::endl;
    //   std::cout << track_eta << std::endl;
    //   std::cout << track_phi << std::endl;
    //   std::cout << track_cha << std::endl;
    // }
-   // if ( nBp == 0 ) return;
+   if ( nBz == 0 ) return;
 
 
    // edm::Handle<l1t::MuonBxCollection> l1cands;
@@ -567,8 +573,8 @@ VanillaHLTAnalyzer::beginJob()
 
   outTree->Branch("hltNames"    , &hltNames     );
   outTree->Branch("hltResults"  , &hltResults   );
-  outTree->Branch("hltMatchDimu", &hltMatchDimu );
-  outTree->Branch("hltMatchB"   , &hltMatchB    );
+  outTree->Branch("hltMatchMu1" , &hltMatchMu1 );
+  outTree->Branch("hltMatchMu2" , &hltMatchMu2 );
   outTree->Branch("hltPrescales", &hltPrescales );
   outTree->Branch("l1tNames"    , &l1tNames     );
   outTree->Branch("l1tPrescales", &l1tPrescales );
@@ -590,19 +596,24 @@ VanillaHLTAnalyzer::beginJob()
   outTree->Branch("Muon2_phi", &Muon2_phi );
   outTree->Branch("Muon2_cha", &Muon2_cha );
 
-  outTree->Branch("Bp_CL"      , &Bp_CL       );
-  outTree->Branch("Bp_LS"      , &Bp_LS       );
-  outTree->Branch("Bp_CosAlpha", &Bp_CosAlpha );
-  outTree->Branch("Bp_Mass"    , &Bp_Mass     );
-  outTree->Branch("Bp_pT"      , &Bp_pT       );
-  outTree->Branch("Bp_eta"     , &Bp_eta      );
-  outTree->Branch("Bp_phi"     , &Bp_phi      );
+  outTree->Branch("Bz_CL"      , &Bz_CL       );
+  outTree->Branch("Bz_LS"      , &Bz_LS       );
+  outTree->Branch("Bz_CosAlpha", &Bz_CosAlpha );
+  outTree->Branch("Bz_Mass"    , &Bz_Mass     );
+  outTree->Branch("Bz_pT"      , &Bz_pT       );
+  outTree->Branch("Bz_eta"     , &Bz_eta      );
+  outTree->Branch("Bz_phi"     , &Bz_phi      );
 
-  outTree->Branch("track_pT" , &track_pT  );
-  outTree->Branch("track_eta", &track_eta );
-  outTree->Branch("track_phi", &track_phi );
-  outTree->Branch("track_cha", &track_cha );
-  outTree->Branch("track_d0" , &track_d0  );
+  outTree->Branch("track1_pT" , &track1_pT  );
+  outTree->Branch("track1_eta", &track1_eta );
+  outTree->Branch("track1_phi", &track1_phi );
+  outTree->Branch("track1_cha", &track1_cha );
+  outTree->Branch("track1_d0" , &track1_d0  );
+  outTree->Branch("track2_pT" , &track2_pT  );
+  outTree->Branch("track2_eta", &track2_eta );
+  outTree->Branch("track2_phi", &track2_phi );
+  outTree->Branch("track2_cha", &track2_cha );
+  outTree->Branch("track2_d0" , &track2_d0  );
 
   outTree->Branch("nOffVtx", &nOffVtx );
 

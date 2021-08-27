@@ -113,13 +113,13 @@ class VanillaHLTAnalyzer : public edm::one::EDAnalyzer<>  {
 
       std::vector<std::string> hltNames;
       std::vector<bool> hltResults;
-      std::vector<bool> hltMatchDimu;
-      std::vector<bool> hltMatchB;
+      std::vector<bool> hltMatchMu1;
+      std::vector<bool> hltMatchMu2;
       std::vector<int> hltPrescales;
       std::vector<std::string> l1tNames;
       std::vector<int> l1tPrescales;
 
-      bool doBp = true;
+      bool doBz = true;
 
       float Dimuon_CL;
       float Dimuon_LS;
@@ -138,19 +138,24 @@ class VanillaHLTAnalyzer : public edm::one::EDAnalyzer<>  {
       float Muon2_phi;
       float Muon2_cha;
 
-      float Bp_CL;
-      float Bp_LS;
-      float Bp_CosAlpha;
-      float Bp_Mass;
-      float Bp_pT;
-      float Bp_eta;
-      float Bp_phi;
+      float Bz_CL;
+      float Bz_LS;
+      float Bz_CosAlpha;
+      float Bz_Mass;
+      float Bz_pT;
+      float Bz_eta;
+      float Bz_phi;
 
-      float track_pT;
-      float track_eta;
-      float track_phi;
-      float track_cha;
-      float track_d0;
+      float track1_pT;
+      float track1_eta;
+      float track1_phi;
+      float track1_cha;
+      float track1_d0;
+      float track2_pT;
+      float track2_eta;
+      float track2_phi;
+      float track2_cha;
+      float track2_d0;
 
       float nOffVtx;
 
